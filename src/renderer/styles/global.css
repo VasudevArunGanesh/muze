@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base:       #0a0a0a;
+  --bg-surface:    #141414;
+  --bg-elevated:   #1e1e1e;
+  --bg-hover:      #272727;
+  --bg-active:     #2f2f2f;
+
+  --border:        rgba(255,255,255,0.08);
+  --border-mid:    rgba(255,255,255,0.15);
+  --border-strong: rgba(255,255,255,0.28);
+
+  --text-primary:   #f5f5f5;
+  --text-secondary: #aaaaaa;
+  --text-tertiary:  #666666;
+
+  --accent:        #c8a96e;
+  --accent-dim:    rgba(200,169,110,0.15);
+  --accent-glow:   rgba(200,169,110,0.08);
+
+  --player-height: 88px;
+  --sidebar-width: 210px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --transition: 140ms ease;
+
+  /* Base font size — overridden by applySettings() on <html> */
+  font-size: 14px;
+}
+
+html, body, #root {
+  height: 100%; width: 100%;
+  overflow: hidden;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  /* Use rem so everything scales with html font-size */
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+button {
+  background: none; border: none; color: inherit;
+  font-family: inherit; font-size: inherit;
+  cursor: pointer; padding: 0; line-height: 1; outline: none;
+}
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Ghost button — border appears on hover */
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px;
+  font-size: 0.875rem;   /* scales with base */
+  font-weight: 500; border-radius: 999px;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  transition: border-color var(--transition), background var(--transition);
+  cursor: pointer; background: none; font-family: var(--font-sans);
+}
+.btn-ghost:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+
+/* Primary accent button */
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 22px;
+  font-size: 0.875rem;
+  font-weight: 700; border-radius: 999px; border: none;
+  background: var(--accent); color: #000;
+  transition: opacity var(--transition), transform var(--transition);
+  cursor: pointer; font-family: var(--font-sans);
+}
+.btn-primary:hover { opacity: 0.88; transform: scale(1.02); }
+.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+input, textarea {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+input:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 180ms ease forwards; }
+
+@keyframes spin { to { transform: rotate(360deg); } }

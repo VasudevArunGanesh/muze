@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
+import { WindowControls } from "./WindowControls";
 import { PlayerBar } from "../Player/PlayerBar";
 import { MiniPlayer } from "../Player/MiniPlayer";
+import { FullscreenPlayer } from "../Player/FullscreenPlayer";
 import { ArtistView } from "../Library/ArtistView";
 import { AlbumView } from "../Library/AlbumView";
 import { AllSongsView } from "../Library/AllSongsView";
@@ -35,6 +37,7 @@ export function AppLayout({ settings, onSettingsChange }: Props) {
     w: window.innerWidth,
     h: window.innerHeight,
   });
+  const [isFullscreenPlayer, setIsFullscreenPlayer] = useState(false);
 
   useEffect(() => {
     const onResize = () =>
@@ -78,7 +81,11 @@ export function AppLayout({ settings, onSettingsChange }: Props) {
           <ContentView />
         </main>
       </div>
-      <PlayerBar />
+      <PlayerBar onFullscreen={() => setIsFullscreenPlayer(true)} />
+      {!isFullscreenPlayer && <WindowControls />}
+      {isFullscreenPlayer && (
+        <FullscreenPlayer onClose={() => setIsFullscreenPlayer(false)} />
+      )}
       {isScanning && <ScanningOverlay />}
     </div>
   );

@@ -85,8 +85,7 @@ function createWindow(): void {
     minWidth: 240,
     minHeight: 240,
     backgroundColor: "#0a0a0a",
-    titleBarStyle: "hidden",
-    titleBarOverlay: { color: "#111111", symbolColor: "#888888", height: 32 },
+    frame: false,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -179,6 +178,31 @@ function registerIpcHandlers(): void {
   ipcMain.handle("get-recently-played", (_e, limit: number) =>
     getRecentlyPlayed(limit),
   );
+
+  ipcMain.handle("window-minimize", () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.handle("window-toggle-maximize", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+  });
+
+  ipcMain.handle("window-close", () => {
+    mainWindow?.close();
+  });
+
+  ipcMain.handle("maximize-from-mini", () => {
+    if (!mainWindow) return;
+    mainWindow.maximize();
+    mainWindow.focus();
+  });
+
+  ipcMain.handle("set-player-fullscreen", (_event, enabled: boolean) => {
+    if (!mainWindow) return;
+    mainWindow.setFullScreen(enabled);
+  });
 
   ipcMain.handle("open-music-folder", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {

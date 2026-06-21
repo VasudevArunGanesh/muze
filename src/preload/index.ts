@@ -32,6 +32,17 @@ contextBridge.exposeInMainWorld("muze", {
   saveSettings: (settings: unknown) =>
     ipcRenderer.invoke("save-settings", settings),
 
+  windowMinimize: () => ipcRenderer.invoke("window-minimize"),
+
+  windowToggleMaximize: () => ipcRenderer.invoke("window-toggle-maximize"),
+
+  windowClose: () => ipcRenderer.invoke("window-close"),
+
+  maximizeFromMini: () => ipcRenderer.invoke("maximize-from-mini"),
+
+  setPlayerFullscreen: (enabled: boolean) =>
+    ipcRenderer.invoke("set-player-fullscreen", enabled),
+
   // Listen for OS media key events pushed from main
   onMediaNext: (cb: () => void) => {
     ipcRenderer.on("media-next", cb);

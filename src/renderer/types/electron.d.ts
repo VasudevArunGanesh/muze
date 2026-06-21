@@ -12,6 +12,11 @@ interface MuzeElectronAPI {
   openMusicFolder: () => Promise<string | null>
   getSettings: () => Promise<AppSettings>
   saveSettings: (settings: Partial<AppSettings>) => Promise<void>
+  windowMinimize: () => Promise<void>
+  windowToggleMaximize: () => Promise<void>
+  windowClose: () => Promise<void>
+  maximizeFromMini: () => Promise<void>
+  setPlayerFullscreen: (enabled: boolean) => Promise<void>
   onMediaNext: (cb: () => void) => () => void
   onMediaPrev: (cb: () => void) => () => void
   onMediaPlayPause: (cb: () => void) => () => void

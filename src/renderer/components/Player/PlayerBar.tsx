@@ -5,7 +5,7 @@ import { useLibraryStore } from '../../store/libraryStore'
 import { useNavStore } from '../../store/navStore'
 import { formatDuration } from '../../utils/format'
 
-export function PlayerBar() {
+export function PlayerBar({ onFullscreen }: { onFullscreen: () => void }) {
   const {
     currentSong, isPlaying, currentTime, duration,
     volume, shuffle, repeat,
@@ -208,7 +208,12 @@ export function PlayerBar() {
       </div>
 
       {/* ── Volume ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 130, flexShrink: 0, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 174, flexShrink: 0, justifyContent: 'flex-end' }}>
+        <Ctrl onClick={onFullscreen} title="Fullscreen player">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3H3v5"/><path d="M21 8V3h-5"/><path d="M16 21h5v-5"/><path d="M3 16v5h5"/>
+          </svg>
+        </Ctrl>
         <span style={{ fontSize: 14, color: 'var(--text-tertiary)' }}>
           {volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
         </span>

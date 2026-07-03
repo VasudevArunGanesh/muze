@@ -1,4 +1,4 @@
-import type { AppSettings } from './index'
+import type { AppSettings, LyricsRequest, LyricsResult } from './index'
 
 interface MuzeElectronAPI {
   scanLibrary: (musicPath: string) => Promise<{ success: true; data: import('./index').Library } | { success: false; error: string }>
@@ -9,6 +9,7 @@ interface MuzeElectronAPI {
   saveAlbumRating: (albumId: string, rating: number, review: string) => Promise<void>
   recordPlay: (songId: string) => Promise<void>
   getRecentlyPlayed: (limit: number) => Promise<Array<{ song_id: string; played_at: string }>>
+  getLyrics: (request: LyricsRequest) => Promise<LyricsResult>
   openMusicFolder: () => Promise<string | null>
   getSettings: () => Promise<AppSettings>
   saveSettings: (settings: Partial<AppSettings>) => Promise<void>

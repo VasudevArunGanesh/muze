@@ -19,6 +19,25 @@ import {
 } from "./database";
 import { readFileSync, existsSync, writeFileSync } from "fs";
 
+interface LyricsRequest {
+  artistName: string;
+  trackName: string;
+  albumName?: string;
+  duration: number;
+}
+
+interface LrclibResponse {
+  id: number;
+  name: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  duration: number;
+  instrumental: boolean;
+  plainLyrics: string | null;
+  syncedLyrics: string | null;
+}
+
 // ── WebGL2 / GPU flags — must be before app.whenReady() ──────────────────────
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 app.commandLine.appendSwitch("enable-webgl");
@@ -178,6 +197,52 @@ function registerIpcHandlers(): void {
   ipcMain.handle("get-recently-played", (_e, limit: number) =>
     getRecentlyPlayed(limit),
   );
+
+  ipcMain.handle("get-lyrics", async (_event, request: LyricsRequest) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const params = new URLSearchParams({
+        artist_name: request.artistName,
+        track_name: request.trackName,
+        duration: String(Math.max(0, Math.round(request.duration))),
+      });
+
+      if (request.albumName) params.set("album_name", request.albumName);
+
+      const response = await fetch(`https://lrclib.net/api/get?${params}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Muze desktop app",
+        },
+      });
+
+      if (response.status === 404) {
+        return { success: false, status: 404, error: "Lyrics not found." };
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          status: response.status,
+          error: "There was a technical issue loading lyrics.",
+        };
+      }
+
+      const data = (await response.json()) as LrclibResponse;
+      return { success: true, data };
+    } catch (err) {
+      return {
+        success: false,
+        status: err instanceof Error && err.name === "AbortError" ? "timeout" : "error",
+        error: "There was a technical issue loading lyrics.",
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
 
   ipcMain.handle("window-minimize", () => {
     mainWindow?.minimize();

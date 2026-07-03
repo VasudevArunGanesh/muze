@@ -4,6 +4,7 @@ import { WindowControls } from "./WindowControls";
 import { PlayerBar } from "../Player/PlayerBar";
 import { MiniPlayer } from "../Player/MiniPlayer";
 import { FullscreenPlayer } from "../Player/FullscreenPlayer";
+import { LyricsFullscreen } from "../Player/LyricsFullscreen";
 import { ArtistView } from "../Library/ArtistView";
 import { AlbumView } from "../Library/AlbumView";
 import { AllSongsView } from "../Library/AllSongsView";
@@ -11,7 +12,9 @@ import { RatedView } from "../Library/RatedView";
 import { RecentView } from "../Library/RecentView";
 import { ScanningOverlay } from "./ScanningOverlay";
 import { useLibraryStore } from "../../store/libraryStore";
+import { useLyricsStore } from "../../store/lyricsStore";
 import { useNavStore } from "../../store/navStore";
+import { usePlayerStore } from "../../store/playerStore";
 import type { AppSettings } from "../../types";
 
 const MINI_W = 520;
@@ -31,13 +34,16 @@ const VIEW_MAP: Record<string, () => JSX.Element> = {
 };
 
 export function AppLayout({ settings, onSettingsChange }: Props) {
-  const { isScanning } = useLibraryStore();
+  const { isScanning, library } = useLibraryStore();
+  const { loadLyrics, clearLyrics } = useLyricsStore();
+  const { currentSong, duration } = usePlayerStore();
   const { view, setView } = useNavStore();
   const [winSize, setWinSize] = useState({
     w: window.innerWidth,
     h: window.innerHeight,
   });
   const [isFullscreenPlayer, setIsFullscreenPlayer] = useState(false);
+  const [isLyricsFullscreen, setIsLyricsFullscreen] = useState(false);
 
   useEffect(() => {
     const onResize = () =>
@@ -45,6 +51,19 @@ export function AppLayout({ settings, onSettingsChange }: Props) {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    if (!currentSong) {
+      clearLyrics();
+      return;
+    }
+
+    const artist = library?.artists.find((a) => a.id === currentSong.artistId) ?? null;
+    const album = artist?.albums.find((a) => a.id === currentSong.albumId) ?? null;
+
+    if (!artist) return;
+    loadLyrics(currentSong, artist, album, duration);
+  }, [clearLyrics, currentSong, duration, library, loadLyrics]);
 
   const isMini = winSize.w < MINI_W || winSize.h < MINI_H;
 
@@ -81,10 +100,16 @@ export function AppLayout({ settings, onSettingsChange }: Props) {
           <ContentView />
         </main>
       </div>
-      <PlayerBar onFullscreen={() => setIsFullscreenPlayer(true)} />
-      {!isFullscreenPlayer && <WindowControls />}
+      <PlayerBar
+        onFullscreen={() => setIsFullscreenPlayer(true)}
+        onLyrics={() => setIsLyricsFullscreen(true)}
+      />
+      {!isFullscreenPlayer && !isLyricsFullscreen && <WindowControls />}
       {isFullscreenPlayer && (
         <FullscreenPlayer onClose={() => setIsFullscreenPlayer(false)} />
+      )}
+      {isLyricsFullscreen && (
+        <LyricsFullscreen onClose={() => setIsLyricsFullscreen(false)} />
       )}
       {isScanning && <ScanningOverlay />}
     </div>

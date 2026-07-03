@@ -55,6 +55,29 @@ export interface AppSettings {
   fontSize: number       // base px, 13–18
 }
 
+export interface LyricsRequest {
+  artistName: string
+  trackName: string
+  albumName?: string
+  duration: number
+}
+
+export interface LyricsData {
+  id: number
+  name: string
+  trackName: string
+  artistName: string
+  albumName: string
+  duration: number
+  instrumental: boolean
+  plainLyrics: string | null
+  syncedLyrics: string | null
+}
+
+export type LyricsResult =
+  | { success: true; data: LyricsData }
+  | { success: false; status: number | 'timeout' | 'error'; error: string }
+
 export const DEFAULT_SETTINGS: AppSettings = {
   musicPath: '',
   volume: 0.8,

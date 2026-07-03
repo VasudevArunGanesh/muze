@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld("muze", {
   getRecentlyPlayed: (limit: number) =>
     ipcRenderer.invoke("get-recently-played", limit),
 
+  getLyrics: (request: unknown) => ipcRenderer.invoke("get-lyrics", request),
+
   openMusicFolder: () => ipcRenderer.invoke("open-music-folder"),
 
   getSettings: () => ipcRenderer.invoke("get-settings"),

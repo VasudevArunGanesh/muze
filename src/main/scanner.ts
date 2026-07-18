@@ -1,5 +1,5 @@
-import { readdirSync, statSync, existsSync } from 'fs'
-import { join, extname, basename } from 'path'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'fs'
+import { dirname, extname, basename, join, relative } from 'path'
 import { createHash } from 'crypto'
 import type { Library, Artist, Album, Song } from '../renderer/types'
 
@@ -7,6 +7,8 @@ const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.alac', '.m4a', '.aa
 const COVER_NAMES = ['cover', 'folder', 'album', 'artwork', 'front']
 const IMAGE_EXTS   = ['.jpg', '.jpeg', '.png', '.webp']
 const ARTIST_IMAGE_NAMES = ['artist', 'photo', 'profile', 'avatar', 'folder']
+const UNKNOWN_ARTIST = 'Unknown Artist'
+const UNKNOWN_ALBUM = 'Unknown Album'
 
 function makeId(path: string): string {
   return createHash('sha1').update(path).digest('hex').slice(0, 16)
@@ -14,6 +16,118 @@ function makeId(path: string): string {
 
 function isAudioFile(filename: string): boolean {
   return AUDIO_EXTENSIONS.has(extname(filename).toLowerCase())
+}
+
+function isInside(parent: string, child: string): boolean {
+  const rel = relative(parent, child)
+  return !!rel && !rel.startsWith('..') && !rel.includes('..\\')
+}
+
+function sanitizeFolderName(value: string | undefined, fallback: string): string {
+  const cleaned = (value ?? '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/g, '')
+    .trim()
+  return cleaned || fallback
+}
+
+function getUniquePath(targetPath: string): string {
+  if (!existsSync(targetPath)) return targetPath
+
+  const dir = dirname(targetPath)
+  const ext = extname(targetPath)
+  const name = basename(targetPath, ext)
+  let index = 2
+  let candidate = join(dir, `${name} (${index})${ext}`)
+
+  while (existsSync(candidate)) {
+    index += 1
+    candidate = join(dir, `${name} (${index})${ext}`)
+  }
+
+  return candidate
+}
+
+function collectAudioFiles(folderPath: string): string[] {
+  let entries: string[]
+  try { entries = readdirSync(folderPath) } catch { return [] }
+
+  const files: string[] = []
+  for (const entry of entries) {
+    const entryPath = join(folderPath, entry)
+    try {
+      const stats = statSync(entryPath)
+      if (stats.isDirectory()) files.push(...collectAudioFiles(entryPath))
+      else if (stats.isFile() && isAudioFile(entry)) files.push(entryPath)
+    } catch { /* skip unreadable entries */ }
+  }
+
+  return files
+}
+
+function isProperlyStructured(musicPath: string, filePath: string): boolean {
+  const segments = relative(musicPath, filePath).split(/[\\/]+/).filter(Boolean)
+  return segments.length === 3
+}
+
+async function organizeLooseTracks(musicPath: string): Promise<void> {
+  const { parseFile } = await import('music-metadata')
+  const audioFiles = collectAudioFiles(musicPath)
+
+  for (const filePath of audioFiles) {
+    if (isProperlyStructured(musicPath, filePath)) continue
+
+    const relSegments = relative(musicPath, filePath).split(/[\\/]+/).filter(Boolean)
+    const parentName = relSegments.length > 1 ? relSegments[relSegments.length - 2] : undefined
+    const grandParentName = relSegments.length > 2 ? relSegments[relSegments.length - 3] : undefined
+
+    let artistName = grandParentName ?? parentName ?? UNKNOWN_ARTIST
+    let albumName = parentName && parentName !== artistName ? parentName : UNKNOWN_ALBUM
+
+    try {
+      const meta = await parseFile(filePath, { duration: false, skipCovers: true })
+      artistName = meta.common.albumartist || meta.common.artist || artistName
+      albumName = meta.common.album || albumName
+    } catch { /* use path-derived fallback names */ }
+
+    const artistFolder = sanitizeFolderName(artistName, UNKNOWN_ARTIST)
+    const albumFolder = sanitizeFolderName(albumName, UNKNOWN_ALBUM)
+    const targetDir = join(musicPath, artistFolder, albumFolder)
+    const targetPath = getUniquePath(join(targetDir, basename(filePath)))
+
+    if (!isInside(musicPath, targetPath)) continue
+    if (targetPath === filePath) continue
+
+    mkdirSync(targetDir, { recursive: true })
+    renameSync(filePath, targetPath)
+  }
+}
+
+export function saveLibraryImage(folderPath: string, sourcePath: string, kind: 'artist' | 'album'): string {
+  if (!existsSync(folderPath) || !statSync(folderPath).isDirectory()) {
+    throw new Error('Target folder not found.')
+  }
+  if (!existsSync(sourcePath) || !statSync(sourcePath).isFile()) {
+    throw new Error('Image file not found.')
+  }
+
+  const sourceExt = extname(sourcePath).toLowerCase()
+  if (!IMAGE_EXTS.includes(sourceExt)) {
+    throw new Error('Please choose a JPG, PNG, or WebP image.')
+  }
+
+  const baseName = kind === 'artist' ? 'artist' : 'cover'
+  for (const ext of IMAGE_EXTS) {
+    const existing = join(folderPath, `${baseName}${ext}`)
+    try {
+      if (existsSync(existing)) unlinkSync(existing)
+    } catch { /* ignore image cleanup failures */ }
+  }
+
+  const targetPath = join(folderPath, `${baseName}${sourceExt}`)
+  copyFileSync(sourcePath, targetPath)
+  return targetPath
 }
 
 function findCoverInFolder(folderPath: string): string | undefined {
@@ -122,6 +236,7 @@ async function scanAlbum(folderPath: string, artistId: string, artistName: strin
 
 export async function scanLibrary(musicPath: string): Promise<Library> {
   if (!existsSync(musicPath)) throw new Error(`Music folder not found: ${musicPath}`)
+  await organizeLooseTracks(musicPath)
 
   const artistFolders = readdirSync(musicPath)
     .filter(name => { try { return statSync(join(musicPath, name)).isDirectory() } catch { return false } })

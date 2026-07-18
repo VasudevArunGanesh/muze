@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState } from "react";
 import { usePlayerStore } from "../../store/playerStore";
-import { useCoverArt } from "../../hooks/useCoverArt";
+import { clearCoverArtCache, useCoverArt } from "../../hooks/useCoverArt";
 import { useLibraryStore } from "../../store/libraryStore";
 import { useNavStore } from "../../store/navStore";
 import { formatDuration } from "../../utils/format";
@@ -29,7 +29,13 @@ export function PlayerBar({
     cycleRepeat,
   } = usePlayerStore();
 
-  const { library, selectArtist, selectAlbum } = useLibraryStore();
+  const {
+    library,
+    selectArtist,
+    selectAlbum,
+    updateAlbumCover,
+    updateArtistImage,
+  } = useLibraryStore();
   const { navigateTo } = useNavStore();
 
   // Resolve album + artist for the current song
@@ -81,6 +87,33 @@ export function PlayerBar({
       selectAlbum(null);
     }
     navigateTo("artists");
+  }
+
+  async function changeNowPlayingImage(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (album && !album.isSinglesCollection) {
+      const result = await window.muze.chooseLibraryImage(
+        album.folderPath,
+        "album",
+      );
+      if (!result.success) return;
+      clearCoverArtCache(album.coverPath);
+      clearCoverArtCache(result.imagePath);
+      updateAlbumCover(album.id, result.imagePath);
+      return;
+    }
+
+    if (!artist) return;
+    const result = await window.muze.chooseLibraryImage(
+      artist.folderPath,
+      "artist",
+    );
+    if (!result.success) return;
+    clearCoverArtCache(artist.imagePath);
+    clearCoverArtCache(result.imagePath);
+    updateArtistImage(artist.id, result.imagePath);
   }
 
   return (
@@ -152,8 +185,15 @@ export function PlayerBar({
         {/* Cover — clicking goes to album */}
         <button
           onClick={goToSong}
+          onContextMenu={changeNowPlayingImage}
           disabled={!currentSong}
-          title={album ? `Go to ${album.name}` : undefined}
+          title={
+            album && !album.isSinglesCollection
+              ? `Go to ${album.name}. Right-click to choose album cover`
+              : artist
+                ? "Right-click to choose artist image"
+                : undefined
+          }
           style={{
             width: 54,
             height: 54,
@@ -439,9 +479,9 @@ export function PlayerBar({
               cy="8"
               r="3"
               stroke="#333333"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
             <path
               d="M13.5649 8L6.06491 16.5L7.15688 17.7218L8.06491 18.5L16.5649 11"

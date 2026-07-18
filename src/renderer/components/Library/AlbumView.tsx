@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLibraryStore } from '../../store/libraryStore'
 import { usePlayerStore } from '../../store/playerStore'
-import { useCoverArt } from '../../hooks/useCoverArt'
+import { clearCoverArtCache, useCoverArt } from '../../hooks/useCoverArt'
 import { AlbumDetailView } from './AlbumDetailView'
 import { useNavStore } from '../../store/navStore'
 import { pluralise } from '../../utils/format'
@@ -13,7 +13,10 @@ export function AlbumView() {
   const [selected, setSelected] = useState<Album | null>(null)
 
   if (selected) {
-    return <AlbumDetailView album={selected} onBack={() => setSelected(null)} />
+    const liveSelected = library?.artists
+      .flatMap(artist => artist.albums)
+      .find(album => album.id === selected.id) ?? selected
+    return <AlbumDetailView album={liveSelected} onBack={() => setSelected(null)} />
   }
 
   const q = searchQuery.toLowerCase()
@@ -54,17 +57,30 @@ function AlbumGridCard({ album, onClick, onArtistClick }: {
   const [hovered, setHovered] = useState(false)
   const [rating, setRating] = useState<number>(album.avgRating ?? 0)
   const { playAlbum } = usePlayerStore()
+  const { updateAlbumCover } = useLibraryStore()
 
   // Load rating from DB on mount
   useEffect(() => {
     window.muze.getAlbumRating(album.id).then(r => { if (r) setRating(r.rating) })
   }, [album.id])
 
+  async function changeAlbumCover(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const result = await window.muze.chooseLibraryImage(album.folderPath, 'album')
+    if (!result.success) return
+    clearCoverArtCache(album.coverPath)
+    clearCoverArtCache(result.imagePath)
+    updateAlbumCover(album.id, result.imagePath)
+  }
+
   return (
     <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       {/* Cover art */}
       <div
         onClick={onClick}
+        onContextMenu={changeAlbumCover}
+        title="Right-click to choose album cover"
         style={{
           width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-md)',
           background: 'var(--bg-elevated)', border: '1px solid var(--border)',

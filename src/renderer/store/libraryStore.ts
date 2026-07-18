@@ -15,6 +15,8 @@ interface LibraryStore {
   setSearchQuery: (q: string) => void
   updateSongRating: (songId: string, rating: number, review: string) => void
   updateAlbumRating: (albumId: string, rating: number, review: string) => void
+  updateAlbumCover: (albumId: string, coverPath: string) => void
+  updateArtistImage: (artistId: string, imagePath: string) => void
 
   // Derived helpers
   getAllSongs: () => Song[]
@@ -80,6 +82,34 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
           )
         }))
       }
+    })
+  },
+
+  updateAlbumCover: (albumId, coverPath) => {
+    const { library, selectedAlbum } = get()
+    if (!library) return
+    const updatedArtists = library.artists.map(artist => ({
+      ...artist,
+      albums: artist.albums.map(album =>
+        album.id === albumId ? { ...album, coverPath } : album
+      )
+    }))
+    set({
+      library: { ...library, artists: updatedArtists },
+      selectedArtist: updatedArtists.find(artist => artist.id === get().selectedArtist?.id) ?? get().selectedArtist,
+      selectedAlbum: selectedAlbum?.id === albumId ? { ...selectedAlbum, coverPath } : selectedAlbum
+    })
+  },
+
+  updateArtistImage: (artistId, imagePath) => {
+    const { library, selectedArtist } = get()
+    if (!library) return
+    const updatedArtists = library.artists.map(artist =>
+      artist.id === artistId ? { ...artist, imagePath } : artist
+    )
+    set({
+      library: { ...library, artists: updatedArtists },
+      selectedArtist: selectedArtist?.id === artistId ? { ...selectedArtist, imagePath } : selectedArtist
     })
   },
 

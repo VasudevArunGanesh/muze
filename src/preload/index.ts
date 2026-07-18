@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld("muze", {
   getCoverArt: (coverPath: string) =>
     ipcRenderer.invoke("get-cover-art", coverPath),
 
+  chooseLibraryImage: (folderPath: string, kind: "artist" | "album") =>
+    ipcRenderer.invoke("choose-library-image", folderPath, kind),
+
   getSongRating: (songId: string) =>
     ipcRenderer.invoke("get-song-rating", songId),
 

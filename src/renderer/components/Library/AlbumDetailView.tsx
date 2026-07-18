@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useCoverArt } from '../../hooks/useCoverArt'
+import { clearCoverArtCache, useCoverArt } from '../../hooks/useCoverArt'
 import { usePlayerStore } from '../../store/playerStore'
 import { useLibraryStore } from '../../store/libraryStore'
 import { RatingWidget } from '../Rating/RatingWidget'
@@ -11,7 +11,7 @@ interface Props { album: Album; onBack: () => void }
 export function AlbumDetailView({ album, onBack }: Props) {
   const coverSrc = useCoverArt(album.coverPath)
   const { playSong, playAlbum, currentSong, isPlaying } = usePlayerStore()
-  const { updateAlbumRating } = useLibraryStore()
+  const { updateAlbumCover, updateAlbumRating } = useLibraryStore()
   const [albumRating, setAlbumRating] = useState(0)
   const [showRatingPanel, setShowRatingPanel] = useState(false)
 
@@ -26,6 +26,16 @@ export function AlbumDetailView({ album, onBack }: Props) {
     setAlbumRating(rating)
     updateAlbumRating(album.id, rating, review)
     setShowRatingPanel(false)
+  }
+
+  async function changeAlbumCover(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const result = await window.muze.chooseLibraryImage(album.folderPath, 'album')
+    if (!result.success) return
+    clearCoverArtCache(album.coverPath)
+    clearCoverArtCache(result.imagePath)
+    updateAlbumCover(album.id, result.imagePath)
   }
 
   return (
@@ -44,7 +54,10 @@ export function AlbumDetailView({ album, onBack }: Props) {
         display: 'flex', alignItems: 'flex-end', gap: 24,
         borderBottom: '1px solid var(--border)', flexShrink: 0
       }}>
-        <div style={{
+        <div
+          onContextMenu={changeAlbumCover}
+          title="Right-click to choose album cover"
+          style={{
           width: 128, height: 128, borderRadius: 'var(--radius-md)',
           background: 'var(--bg-elevated)', border: '1px solid var(--border)',
           overflow: 'hidden', flexShrink: 0,

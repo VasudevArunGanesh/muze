@@ -3,6 +3,10 @@ import type { AppSettings, LyricsRequest, LyricsResult } from './index'
 interface MuzeElectronAPI {
   scanLibrary: (musicPath: string) => Promise<{ success: true; data: import('./index').Library } | { success: false; error: string }>
   getCoverArt: (coverPath: string) => Promise<string | null>
+  chooseLibraryImage: (folderPath: string, kind: 'artist' | 'album') => Promise<
+    | { success: true; imagePath: string }
+    | { success: false; canceled?: boolean; error?: string }
+  >
   getSongRating: (songId: string) => Promise<{ rating: number; review: string } | null>
   saveSongRating: (songId: string, rating: number, review: string) => Promise<void>
   getAlbumRating: (albumId: string) => Promise<{ rating: number; review: string } | null>

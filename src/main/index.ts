@@ -7,7 +7,7 @@ import {
   nativeTheme,
 } from "electron";
 import { join } from "path";
-import { scanLibrary } from "./scanner";
+import { saveLibraryImage, scanLibrary } from "./scanner";
 import {
   initDatabase,
   getSongRating,
@@ -183,6 +183,31 @@ function registerIpcHandlers(): void {
       return null;
     }
   });
+
+  ipcMain.handle(
+    "choose-library-image",
+    async (_event, folderPath: string, kind: "artist" | "album") => {
+      try {
+        const result = await dialog.showOpenDialog(mainWindow!, {
+          properties: ["openFile"],
+          title: kind === "artist" ? "Choose artist image" : "Choose album cover",
+          filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] }],
+        });
+
+        if (result.canceled || !result.filePaths[0]) {
+          return { success: false, canceled: true };
+        }
+
+        const imagePath = saveLibraryImage(folderPath, result.filePaths[0], kind);
+        return { success: true, imagePath };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
 
   ipcMain.handle("get-song-rating", (_e, id: string) => getSongRating(id));
   ipcMain.handle("save-song-rating", (_e, id: string, r: number, rev: string) =>

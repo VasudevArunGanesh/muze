@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLibraryStore } from '../../store/libraryStore'
 import { usePlayerStore } from '../../store/playerStore'
-import { useCoverArt } from '../../hooks/useCoverArt'
+import { clearCoverArtCache, useCoverArt } from '../../hooks/useCoverArt'
 import { AlbumDetailView } from './AlbumDetailView'
 import { formatDuration, pluralise } from '../../utils/format'
 import type { Artist, Album, Song } from '../../types'
@@ -36,6 +36,17 @@ function ArtistRow({ artist, onClick }: { artist: Artist; onClick: () => void })
   const imageSrc = useCoverArt(artist.imagePath)
   const totalDuration = artist.albums.flatMap(a => a.songs).reduce((n, s) => n + s.duration, 0)
   const [hovered, setHovered] = useState(false)
+  const { updateArtistImage } = useLibraryStore()
+
+  async function changeArtistImage(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const result = await window.muze.chooseLibraryImage(artist.folderPath, 'artist')
+    if (!result.success) return
+    clearCoverArtCache(artist.imagePath)
+    clearCoverArtCache(result.imagePath)
+    updateArtistImage(artist.id, result.imagePath)
+  }
 
   return (
     <div
@@ -49,7 +60,11 @@ function ArtistRow({ artist, onClick }: { artist: Artist; onClick: () => void })
         cursor: 'pointer', transition: 'background var(--transition)'
       }}
     >
-      <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        onContextMenu={changeArtistImage}
+        title="Right-click to choose artist image"
+        style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
         {imageSrc
           ? <img src={imageSrc} alt={artist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>{artist.name.charAt(0).toUpperCase()}</span>
@@ -73,6 +88,7 @@ function ArtistDetailView({ artist, onBack, onAlbumSelect }: {
 }) {
   const imageSrc = useCoverArt(artist.imagePath)
   const { playAlbum, playSong } = usePlayerStore()
+  const { updateArtistImage } = useLibraryStore()
 
   const singlesAlbum = artist.albums.find(a => a.isSinglesCollection)
   const regularAlbums = artist.albums.filter(a => !a.isSinglesCollection)
@@ -81,6 +97,16 @@ function ArtistDetailView({ artist, onBack, onAlbumSelect }: {
   function playAll() {
     const allSongs = artist.albums.flatMap(a => a.songs)
     if (allSongs.length > 0) playAlbum(allSongs, 0)
+  }
+
+  async function changeArtistImage(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const result = await window.muze.chooseLibraryImage(artist.folderPath, 'artist')
+    if (!result.success) return
+    clearCoverArtCache(artist.imagePath)
+    clearCoverArtCache(result.imagePath)
+    updateArtistImage(artist.id, result.imagePath)
   }
 
   return (
@@ -95,7 +121,11 @@ function ArtistDetailView({ artist, onBack, onAlbumSelect }: {
 
       {/* Hero */}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, padding: '16px 32px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ width: 88, height: 88, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          onContextMenu={changeArtistImage}
+          title="Right-click to choose artist image"
+          style={{ width: 88, height: 88, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
           {imageSrc
             ? <img src={imageSrc} alt={artist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <span style={{ fontSize: 34, fontWeight: 700, color: 'var(--accent)' }}>{artist.name.charAt(0).toUpperCase()}</span>
@@ -220,10 +250,24 @@ function AlbumCard({ album, onClick }: { album: Album; onClick: () => void }) {
   const coverSrc = useCoverArt(album.coverPath)
   const [hovered, setHovered] = useState(false)
   const { playAlbum } = usePlayerStore()
+  const { updateAlbumCover } = useLibraryStore()
+
+  async function changeAlbumCover(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const result = await window.muze.chooseLibraryImage(album.folderPath, 'album')
+    if (!result.success) return
+    clearCoverArtCache(album.coverPath)
+    clearCoverArtCache(result.imagePath)
+    updateAlbumCover(album.id, result.imagePath)
+  }
 
   return (
     <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ cursor: 'pointer' }}>
-      <div style={{
+      <div
+        onContextMenu={changeAlbumCover}
+        title="Right-click to choose album cover"
+        style={{
         width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-md)',
         background: 'var(--bg-elevated)', border: '1px solid var(--border)',
         overflow: 'hidden', position: 'relative',

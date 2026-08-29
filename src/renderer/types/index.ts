@@ -1,8 +1,10 @@
 export interface Song {
   id: string
   filePath: string
+  mediaUrl?: string
   fileName: string
   title: string
+  discNumber: number | null
   trackNumber: number | null
   duration: number
   format: string

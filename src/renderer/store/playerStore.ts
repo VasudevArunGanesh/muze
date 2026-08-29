@@ -32,7 +32,7 @@ interface PlayerStore {
 
 function buildHowl(song: Song, onEnd: () => void, onLoad: (duration: number) => void): Howl {
   return new Howl({
-    src: [song.filePath],
+    src: [song.mediaUrl ?? song.filePath],
     html5: true,   // stream large files rather than loading into memory
     format: [song.format, 'mp3'],   // fallback format hint
     volume: usePlayerStore.getState().volume,
@@ -130,7 +130,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     let nextIndex: number
     if (shuffle) {
-      nextIndex = Math.floor(Math.random() * queue.length)
+      if (queue.length === 1) {
+        if (repeat === 'all') {
+          nextIndex = 0
+        } else {
+          get()._howl?.stop()
+          set({ isPlaying: false, currentTime: 0 })
+          return
+        }
+      } else {
+        const candidates = queue.map((_, i) => i).filter(i => i !== queueIndex)
+        nextIndex = candidates[Math.floor(Math.random() * candidates.length)]
+      }
     } else {
       nextIndex = queueIndex + 1
       if (nextIndex >= queue.length) {
@@ -176,7 +187,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     const { _howl } = get()
     if (_howl) _howl.volume(v)
     set({ volume: v })
-    window.muze.saveSettings({ ...{}, volume: v }).catch(() => {})
+    window.muze.saveSettings({ volume: v }).catch(() => {})
   },
 
   toggleShuffle: () => set(s => ({ shuffle: !s.shuffle })),

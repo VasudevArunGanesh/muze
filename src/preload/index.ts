@@ -2,8 +2,10 @@ import { contextBridge, ipcRenderer } from "electron";
 
 // Expose a typed, safe API to the renderer process
 contextBridge.exposeInMainWorld("muze", {
-  scanLibrary: (musicPath: string) =>
-    ipcRenderer.invoke("scan-library", musicPath),
+  scanLibrary: (musicPath: string, options?: { organize?: boolean }) =>
+    ipcRenderer.invoke("scan-library", musicPath, options),
+
+  undoLastOrganize: () => ipcRenderer.invoke("undo-last-organize"),
 
   getCoverArt: (coverPath: string) =>
     ipcRenderer.invoke("get-cover-art", coverPath),

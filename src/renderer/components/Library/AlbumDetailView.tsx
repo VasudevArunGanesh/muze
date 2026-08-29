@@ -138,6 +138,11 @@ function TrackRow({ song, index, isCurrentSong, isPlaying, onPlay }: {
   const [songRating, setSongRating] = useState(song.rating ?? 0)
   const [showRating, setShowRating] = useState(false)
   const { updateSongRating } = useLibraryStore()
+  const trackLabel = song.trackNumber == null
+    ? String(index + 1)
+    : song.discNumber && song.discNumber > 1
+      ? `${song.discNumber}.${String(song.trackNumber).padStart(2, '0')}`
+      : String(song.trackNumber)
 
   async function handleRateSong(rating: number, review: string) {
     await window.muze.saveSongRating(song.id, rating, review)
@@ -164,7 +169,7 @@ function TrackRow({ song, index, isCurrentSong, isPlaying, onPlay }: {
             ? <button onClick={onPlay} style={{ color: 'var(--text-primary)', fontSize: 12 }}>▶</button>
             : isPlaying
               ? <span style={{ color: 'var(--accent)', fontSize: 12 }}>▶</span>
-              : <span style={{ color: 'var(--text-tertiary)' }}>{song.trackNumber ?? index + 1}</span>
+              : <span style={{ color: 'var(--text-tertiary)' }}>{trackLabel}</span>
           }
         </div>
         <div style={{ minWidth: 0 }}>

@@ -1,7 +1,11 @@
 import type { AppSettings, LyricsRequest, LyricsResult } from './index'
 
 interface MuzeElectronAPI {
-  scanLibrary: (musicPath: string) => Promise<{ success: true; data: import('./index').Library } | { success: false; error: string }>
+  scanLibrary: (musicPath: string, options?: { organize?: boolean }) => Promise<{ success: true; data: import('./index').Library } | { success: false; error: string }>
+  undoLastOrganize: () => Promise<
+    | { success: true; data: { restored: number; skipped: number } }
+    | { success: false; error: string }
+  >
   getCoverArt: (coverPath: string) => Promise<string | null>
   chooseLibraryImage: (folderPath: string, kind: 'artist' | 'album') => Promise<
     | { success: true; imagePath: string }

@@ -9,7 +9,7 @@ interface LibraryStore {
   selectedAlbum: Album | null
   searchQuery: string
 
-  scanLibrary: (path: string) => Promise<void>
+  scanLibrary: (path: string, options?: { organize?: boolean }) => Promise<void>
   selectArtist: (artist: Artist | null) => void
   selectAlbum: (album: Album | null) => void
   setSearchQuery: (q: string) => void
@@ -32,10 +32,10 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   selectedAlbum: null,
   searchQuery: '',
 
-  scanLibrary: async (path: string) => {
+  scanLibrary: async (path: string, options?: { organize?: boolean }) => {
     set({ isScanning: true, scanError: null })
     try {
-      const result = await window.muze.scanLibrary(path)
+      const result = await window.muze.scanLibrary(path, options)
       if (result.success) {
         set({ library: result.data, isScanning: false })
       } else {

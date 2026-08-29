@@ -15,6 +15,8 @@ export function SettingsPanel({ settings, onSettingsChange, onClose }: Props) {
   const [localAccent, setLocalAccent] = useState(settings.accentColor)
   const [customHex, setCustomHex] = useState('')
   const [fontSize, setFontSize] = useState(settings.fontSize)
+  const [organizeStatus, setOrganizeStatus] = useState<string | null>(null)
+  const [isUndoingOrganize, setIsUndoingOrganize] = useState(false)
 
   function applyAccent(color: string) {
     setLocalAccent(color)
@@ -46,6 +48,23 @@ export function SettingsPanel({ settings, onSettingsChange, onClose }: Props) {
     }
   }
 
+  async function handleUndoOrganize() {
+    setIsUndoingOrganize(true)
+    setOrganizeStatus(null)
+    try {
+      const result = await window.muze.undoLastOrganize()
+      if (!result.success) {
+        setOrganizeStatus(result.error)
+        return
+      }
+      const { restored, skipped } = result.data
+      setOrganizeStatus(`Restored ${restored} file${restored === 1 ? '' : 's'}${skipped ? `, skipped ${skipped}` : ''}.`)
+      if (settings.musicPath) await scanLibrary(settings.musicPath, { organize: false })
+    } finally {
+      setIsUndoingOrganize(false)
+    }
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -74,11 +93,7 @@ export function SettingsPanel({ settings, onSettingsChange, onClose }: Props) {
           borderBottom: '1px solid var(--border)'
         }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Settings</h2>
-          <button
-            onClick={onClose}
-            className="btn-ghost"
-            style={{ padding: '4px 10px', fontSize: 16, color: 'var(--text-secondary)' }}
-          >✕</button>
+
         </div>
 
         <div style={{ flex: 1, overflow: 'hidden auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -205,6 +220,19 @@ export function SettingsPanel({ settings, onSettingsChange, onClose }: Props) {
             >
               Change folder…
             </button>
+            <button
+              className="btn-ghost"
+              onClick={handleUndoOrganize}
+              disabled={isUndoingOrganize}
+              style={{ marginTop: 8, width: '100%', justifyContent: 'center', color: 'var(--text-secondary)', opacity: isUndoingOrganize ? 0.6 : 1 }}
+            >
+              {isUndoingOrganize ? 'Undoing organize...' : 'Undo last organize'}
+            </button>
+            {organizeStatus && (
+              <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.5 }}>
+                {organizeStatus}
+              </p>
+            )}
           </section>
         </div>
       </div>

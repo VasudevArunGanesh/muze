@@ -486,16 +486,16 @@ export function PlayerBar({
             <path
               d="M13.5649 8L6.06491 16.5L7.15688 17.7218L8.06491 18.5L16.5649 11"
               stroke="#333333"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
             <path
               d="M5 19.5L7 17.5"
               stroke="#333333"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           </svg>
         </Ctrl>

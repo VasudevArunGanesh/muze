@@ -5,9 +5,10 @@ import {
   dialog,
   globalShortcut,
   nativeTheme,
+  protocol,
 } from "electron";
-import { join } from "path";
-import { saveLibraryImage, scanLibrary } from "./scanner";
+import { extname, join } from "path";
+import { saveLibraryImage, scanLibrary, undoLastOrganize } from "./scanner";
 import {
   initDatabase,
   getSongRating,
@@ -17,7 +18,7 @@ import {
   recordPlay,
   getRecentlyPlayed,
 } from "./database";
-import { readFileSync, existsSync, writeFileSync } from "fs";
+import { createReadStream, readFileSync, existsSync, statSync, writeFileSync } from "fs";
 
 interface LyricsRequest {
   artistName: string;
@@ -49,7 +50,52 @@ app.commandLine.appendSwitch(
 );
 app.commandLine.appendSwitch("use-angle", "default");
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "muze-media",
+    privileges: {
+      standard: true,
+      secure: true,
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
+
 let mainWindow: BrowserWindow | null = null;
+const MEDIA_EXTENSIONS = new Set([
+  ".mp3",
+  ".flac",
+  ".wav",
+  ".alac",
+  ".m4a",
+  ".aac",
+  ".ogg",
+  ".wma",
+  ".aiff",
+  ".ape",
+  ".opus",
+]);
+const MEDIA_MIME: Record<string, string> = {
+  ".mp3": "audio/mpeg",
+  ".flac": "audio/flac",
+  ".wav": "audio/wav",
+  ".alac": "audio/mp4",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".ogg": "audio/ogg",
+  ".wma": "audio/x-ms-wma",
+  ".aiff": "audio/aiff",
+  ".ape": "audio/ape",
+  ".opus": "audio/opus",
+};
+const MEDIA_CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  "Access-Control-Allow-Headers": "Range",
+  "Cross-Origin-Resource-Policy": "cross-origin",
+};
 
 // ── Window state persistence ─────────────────────────────────────────────────
 interface WindowState {
@@ -110,7 +156,6 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false,
       // Force GPU-accelerated rendering for WebGL2
       offscreen: false,
     },
@@ -155,10 +200,23 @@ function registerMediaKeys(): void {
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle("scan-library", async (_event, musicPath: string) => {
+  const organizeLogPath = join(app.getPath("userData"), "last-organize.json");
+
+  ipcMain.handle("scan-library", async (_event, musicPath: string, options?: { organize?: boolean }) => {
     try {
-      const library = await scanLibrary(musicPath);
+      const library = await scanLibrary(musicPath, organizeLogPath, options?.organize !== false);
       return { success: true, data: library };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  ipcMain.handle("undo-last-organize", async () => {
+    try {
+      return { success: true, data: undoLastOrganize(organizeLogPath) };
     } catch (err) {
       return {
         success: false,
@@ -304,14 +362,14 @@ function registerIpcHandlers(): void {
 
   const settingsPath = join(app.getPath("userData"), "settings.json");
   const defaultSettings = {
-    musicPath: "C:\\Users\\Vasudev\\Music",
+    musicPath: app.getPath("music"),
     volume: 0.8,
     theme: "dark",
     accentColor: "#c8a96e",
     fontSize: 14,
   };
 
-  ipcMain.handle("get-settings", () => {
+  function loadSettings() {
     try {
       if (existsSync(settingsPath)) {
         const saved = JSON.parse(readFileSync(settingsPath, "utf8"));
@@ -321,14 +379,67 @@ function registerIpcHandlers(): void {
       /* fall through */
     }
     return defaultSettings;
+  }
+
+  ipcMain.handle("get-settings", () => {
+    return loadSettings();
   });
 
   ipcMain.handle("save-settings", (_event, settings: any) => {
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    writeFileSync(settingsPath, JSON.stringify({ ...loadSettings(), ...settings }, null, 2));
   });
 }
 
 app.whenReady().then(async () => {
+  protocol.handle("muze-media", (request) => {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: MEDIA_CORS_HEADERS });
+    }
+
+    const filePath = decodeURIComponent(new URL(request.url).pathname.slice(1));
+    const ext = extname(filePath).toLowerCase();
+    if (!MEDIA_EXTENSIONS.has(ext) || !existsSync(filePath)) {
+      return new Response(null, { status: 404 });
+    }
+
+    const stats = statSync(filePath);
+    const range = request.headers.get("range");
+    const mime = MEDIA_MIME[ext] ?? "application/octet-stream";
+
+    if (range) {
+      const match = range.match(/bytes=(\d*)-(\d*)/);
+      const start = match?.[1] ? parseInt(match[1], 10) : 0;
+      const end = match?.[2] ? Math.min(parseInt(match[2], 10), stats.size - 1) : stats.size - 1;
+
+      if (start >= stats.size || end < start) {
+        return new Response(null, {
+          status: 416,
+          headers: { ...MEDIA_CORS_HEADERS, "Content-Range": `bytes */${stats.size}` },
+        });
+      }
+
+      return new Response(createReadStream(filePath, { start, end }) as any, {
+        status: 206,
+        headers: {
+          ...MEDIA_CORS_HEADERS,
+          "Accept-Ranges": "bytes",
+          "Content-Length": String(end - start + 1),
+          "Content-Range": `bytes ${start}-${end}/${stats.size}`,
+          "Content-Type": mime,
+        },
+      });
+    }
+
+    return new Response(createReadStream(filePath) as any, {
+      headers: {
+        ...MEDIA_CORS_HEADERS,
+        "Accept-Ranges": "bytes",
+        "Content-Length": String(stats.size),
+        "Content-Type": mime,
+      },
+    });
+  });
+
   initDatabase();
   registerIpcHandlers();
   createWindow();

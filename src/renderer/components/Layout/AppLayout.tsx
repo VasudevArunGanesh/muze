@@ -11,6 +11,7 @@ import { AllSongsView } from "../Library/AllSongsView";
 import { RatedView } from "../Library/RatedView";
 import { RecentView } from "../Library/RecentView";
 import { ScanningOverlay } from "./ScanningOverlay";
+import { YoutubeDownloadModal } from "../Download/YoutubeDownloadModal";
 import { useLibraryStore } from "../../store/libraryStore";
 import { useLyricsStore } from "../../store/lyricsStore";
 import { useNavStore } from "../../store/navStore";
@@ -112,6 +113,7 @@ export function AppLayout({ settings, onSettingsChange }: Props) {
         <LyricsFullscreen onClose={() => setIsLyricsFullscreen(false)} />
       )}
       {isScanning && <ScanningOverlay />}
+      <YoutubeDownloadModal musicPath={settings?.musicPath ?? ''} />
     </div>
   );
 }

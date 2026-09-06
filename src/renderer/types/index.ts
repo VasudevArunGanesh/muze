@@ -80,6 +80,93 @@ export type LyricsResult =
   | { success: true; data: LyricsData }
   | { success: false; status: number | 'timeout' | 'error'; error: string }
 
+export interface YoutubeVideoInfo {
+  videoTitle: string
+  uploader: string
+  durationSeconds: number
+  thumbnailDataUrl: string | null
+  suggestedTitle: string
+  suggestedArtist: string
+}
+
+export interface YoutubeDownloadRequest {
+  url: string
+  title: string
+  artist: string
+  album: string
+  musicPath: string
+}
+
+export interface YoutubeDownloadProgress {
+  downloadId: string
+  stage: 'downloading' | 'tagging'
+  percent: number
+  speed?: string
+  eta?: string
+}
+
+export type YoutubeDownloadResult =
+  | { success: true; filePath: string; relativePath: string }
+  | { success: false; error: string; canceled?: boolean }
+
+export type YoutubeInfoResult =
+  | { success: true; data: YoutubeVideoInfo }
+  | { success: false; error: string }
+
+export interface YoutubePlaylistEntry {
+  url: string
+  videoTitle: string
+  uploader: string
+  durationSeconds: number
+  suggestedTitle: string
+  unavailable: boolean
+}
+
+export interface YoutubePlaylistInfo {
+  playlistTitle: string
+  suggestedArtist: string
+  entries: YoutubePlaylistEntry[]
+}
+
+export type YoutubePlaylistInfoResult =
+  | { success: true; data: YoutubePlaylistInfo }
+  | { success: false; error: string }
+
+export interface YoutubePlaylistTrackRequest {
+  url: string
+  title: string
+  trackNumber: number
+}
+
+export interface YoutubePlaylistDownloadRequest {
+  artist: string
+  album: string
+  musicPath: string
+  tracks: YoutubePlaylistTrackRequest[]
+}
+
+export interface YoutubePlaylistDownloadProgress {
+  downloadId: string
+  currentIndex: number
+  total: number
+  currentTitle: string
+  stage: 'downloading' | 'tagging'
+  percent: number
+  speed?: string
+  eta?: string
+}
+
+export interface YoutubePlaylistTrackResult {
+  title: string
+  success: boolean
+  error?: string
+}
+
+export interface YoutubePlaylistDownloadResult {
+  canceled: boolean
+  results: YoutubePlaylistTrackResult[]
+}
+
 export const DEFAULT_SETTINGS: AppSettings = {
   musicPath: '',
   volume: 0.8,

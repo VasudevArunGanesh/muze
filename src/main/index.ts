@@ -18,6 +18,15 @@ import {
   recordPlay,
   getRecentlyPlayed,
 } from "./database";
+import {
+  fetchVideoInfo,
+  fetchPlaylistInfo,
+  downloadYoutubeAudio,
+  downloadYoutubePlaylist,
+  cancelYoutubeDownload,
+  type YoutubeDownloadRequest,
+  type YoutubePlaylistDownloadRequest,
+} from "./youtubeDownloader";
 import { createReadStream, readFileSync, existsSync, statSync, writeFileSync } from "fs";
 
 interface LyricsRequest {
@@ -325,6 +334,58 @@ function registerIpcHandlers(): void {
     } finally {
       clearTimeout(timeout);
     }
+  });
+
+  ipcMain.handle("yt-fetch-info", async (_event, url: string) => {
+    try {
+      const data = await fetchVideoInfo(url);
+      return { success: true, data };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  ipcMain.handle(
+    "yt-download",
+    async (_event, downloadId: string, request: YoutubeDownloadRequest) => {
+      return downloadYoutubeAudio(downloadId, request, (progress) => {
+        mainWindow?.webContents.send("yt-download-progress", {
+          downloadId,
+          ...progress,
+        });
+      });
+    },
+  );
+
+  ipcMain.handle("yt-fetch-playlist-info", async (_event, url: string) => {
+    try {
+      const data = await fetchPlaylistInfo(url);
+      return { success: true, data };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  ipcMain.handle(
+    "yt-download-playlist",
+    async (_event, downloadId: string, request: YoutubePlaylistDownloadRequest) => {
+      return downloadYoutubePlaylist(downloadId, request, (progress) => {
+        mainWindow?.webContents.send("yt-playlist-download-progress", {
+          downloadId,
+          ...progress,
+        });
+      });
+    },
+  );
+
+  ipcMain.handle("yt-cancel-download", (_event, downloadId: string) => {
+    return cancelYoutubeDownload(downloadId);
   });
 
   ipcMain.handle("window-minimize", () => {

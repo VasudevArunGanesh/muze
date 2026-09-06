@@ -32,6 +32,31 @@ contextBridge.exposeInMainWorld("muze", {
 
   getLyrics: (request: unknown) => ipcRenderer.invoke("get-lyrics", request),
 
+  getYoutubeInfo: (url: string) => ipcRenderer.invoke("yt-fetch-info", url),
+
+  downloadYoutubeAudio: (downloadId: string, request: unknown) =>
+    ipcRenderer.invoke("yt-download", downloadId, request),
+
+  getYoutubePlaylistInfo: (url: string) => ipcRenderer.invoke("yt-fetch-playlist-info", url),
+
+  downloadYoutubePlaylist: (downloadId: string, request: unknown) =>
+    ipcRenderer.invoke("yt-download-playlist", downloadId, request),
+
+  onYoutubePlaylistDownloadProgress: (cb: (progress: unknown) => void) => {
+    const listener = (_event: unknown, progress: unknown) => cb(progress);
+    ipcRenderer.on("yt-playlist-download-progress", listener);
+    return () => ipcRenderer.removeListener("yt-playlist-download-progress", listener);
+  },
+
+  cancelYoutubeDownload: (downloadId: string) =>
+    ipcRenderer.invoke("yt-cancel-download", downloadId),
+
+  onYoutubeDownloadProgress: (cb: (progress: unknown) => void) => {
+    const listener = (_event: unknown, progress: unknown) => cb(progress);
+    ipcRenderer.on("yt-download-progress", listener);
+    return () => ipcRenderer.removeListener("yt-download-progress", listener);
+  },
+
   openMusicFolder: () => ipcRenderer.invoke("open-music-folder"),
 
   getSettings: () => ipcRenderer.invoke("get-settings"),

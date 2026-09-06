@@ -127,14 +127,14 @@ export function LyricsFullscreen({ onClose }: { onClose: () => void }) {
         )}
 
         {currentSong && isLoading && (
-          <Message title="Loading lyrics" body="Asking LRCLIB for a match." />
+          <Message title="Loading lyrics" body="Searchingfor a match." />
         )}
 
         {currentSong && !isLoading && result && !result.success && (
           <Message
             title={result.status === 404 ? 'Lyrics not found' : 'Technical issue'}
             body={result.status === 404
-              ? 'LRCLIB could not find lyrics for this song.'
+              ? 'Could not find lyrics for this song.'
               : 'There was a technical issue loading lyrics. Please try again later.'}
           />
         )}
@@ -200,7 +200,7 @@ function PlainLyrics({ lyrics }: { lyrics: LyricsData }) {
   const text = lyrics.plainLyrics?.trim()
 
   if (!text) {
-    return <Message title="No lyrics available" body="LRCLIB has a match, but it does not include lyric text." />
+    return <Message title="No lyrics available" body="Found a match, but it does not include lyric text." />
   }
 
   return (

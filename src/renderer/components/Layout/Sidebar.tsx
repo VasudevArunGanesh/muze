@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLibraryStore } from '../../store/libraryStore'
+import { useDownloadStore } from '../../store/downloadStore'
 import { SettingsPanel } from './SettingsPanel'
 import type { ViewType, AppSettings } from '../../types'
 
@@ -80,7 +81,14 @@ export function Sidebar({ currentView, onViewChange, settings, onSettingsChange 
         </nav>
 
         {/* Footer */}
-        <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <button
+            onClick={() => useDownloadStore.getState().reset()}
+            className="btn-ghost"
+            style={{ width: '100%', justifyContent: 'flex-start', gap: 10, padding: '8px 10px', fontSize: 13, color: 'var(--text-secondary)', borderRadius: 'var(--radius-md)' }}
+          >
+            <span style={{ fontSize: 14 }}>⬇</span> Download
+          </button>
           <button
             onClick={() => setShowSettings(true)}
             className="btn-ghost"

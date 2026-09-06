@@ -40,7 +40,7 @@ function isInside(parent: string, child: string): boolean {
   return !!rel && !rel.startsWith('..') && !rel.includes('..\\')
 }
 
-function sanitizeFolderName(value: string | undefined, fallback: string): string {
+export function sanitizeFolderName(value: string | undefined, fallback: string): string {
   const cleaned = (value ?? '')
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
     .replace(/\s+/g, ' ')
@@ -49,7 +49,7 @@ function sanitizeFolderName(value: string | undefined, fallback: string): string
   return cleaned || fallback
 }
 
-function getUniquePath(targetPath: string): string {
+export function getUniquePath(targetPath: string): string {
   if (!existsSync(targetPath)) return targetPath
 
   const dir = dirname(targetPath)
@@ -101,11 +101,11 @@ async function organizeLooseTracks(musicPath: string, moveLogPath?: string): Pro
     artistFolder: string
     albumFolder: string
     discFolder?: string
+    groupKey: string
   }> = []
   const groupCounts = new Map<string, number>()
 
-  function addGroupCount(artistFolder: string, albumFolder: string) {
-    const key = `${artistFolder}\u0000${albumFolder}`
+  function addGroupCount(key: string) {
     groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1)
   }
 
@@ -113,7 +113,7 @@ async function organizeLooseTracks(musicPath: string, moveLogPath?: string): Pro
     const structuredSegments = relative(musicPath, filePath).split(/[\\/]+/).filter(Boolean)
     if (isProperlyStructured(musicPath, filePath)) {
       const [artistFolder, albumFolder] = structuredSegments
-      addGroupCount(artistFolder, albumFolder)
+      addGroupCount(`${artistFolder}\u0000${albumFolder}`)
       continue
     }
 
@@ -122,36 +122,62 @@ async function organizeLooseTracks(musicPath: string, moveLogPath?: string): Pro
     const grandParentName = relSegments.length > 2 ? relSegments[relSegments.length - 3] : undefined
 
     let artistName = grandParentName ?? parentName ?? UNKNOWN_ARTIST
-    let albumName = parentName && parentName !== artistName ? parentName : UNKNOWN_ALBUM
+    // A folder-derived album name only counts as a genuine signal when
+    // there's an actual subfolder between the artist and the file — a file
+    // sitting directly in the artist folder (parentName === artistName)
+    // has no folder-level album grouping at all.
+    const folderAlbumName = parentName && parentName !== artistName ? parentName : undefined
+    let albumName = folderAlbumName
     let discNumber: number | undefined
+    let hasRealAlbumSignal = !!folderAlbumName
 
     try {
       const meta = await parseFile(filePath, { duration: false, skipCovers: true })
       artistName = meta.common.albumartist || meta.common.artist || artistName
-      albumName = meta.common.album || albumName
+      if (meta.common.album) {
+        albumName = meta.common.album
+        hasRealAlbumSignal = true
+      }
       discNumber = meta.common.disk?.no ?? undefined
     } catch { /* use path-derived fallback names */ }
 
     const artistFolder = sanitizeFolderName(artistName, UNKNOWN_ARTIST)
     const albumFolder = sanitizeFolderName(albumName, UNKNOWN_ALBUM)
     const discFolder = discNumber ? `Disc ${discNumber}` : undefined
-    candidates.push({ filePath, artistFolder, albumFolder, discFolder })
-    addGroupCount(artistFolder, albumFolder)
+
+    // Tracks with no real album signal (no subfolder, no tag) must never be
+    // bundled with unrelated tagless siblings just because they all fall
+    // back to the same generic "Unknown Album" label — that previously let
+    // N loose singles that merely lack an album tag get counted as one
+    // "real" album once N crossed MIN_ALBUM_TRACKS, fabricating an album
+    // that never existed. Giving each of them a unique group key (keyed by
+    // its own path) guarantees a group size of 1, which always resolves to
+    // a loose single below, regardless of how many such files exist.
+    const groupKey = hasRealAlbumSignal
+      ? `${artistFolder}\u0000${albumFolder}`
+      : `${artistFolder}\u0000${albumFolder}\u0000${filePath}`
+
+    candidates.push({ filePath, artistFolder, albumFolder, discFolder, groupKey })
+    addGroupCount(groupKey)
   }
 
   const moves: OrganizeMove[] = []
 
   for (const candidate of candidates) {
-    const key = `${candidate.artistFolder}\u0000${candidate.albumFolder}`
-    const isSparseAlbum = (groupCounts.get(key) ?? 0) < MIN_ALBUM_TRACKS
+    const isSparseAlbum = (groupCounts.get(candidate.groupKey) ?? 0) < MIN_ALBUM_TRACKS
     const targetDir = isSparseAlbum
       ? join(musicPath, candidate.artistFolder)
       : join(musicPath, candidate.artistFolder, candidate.albumFolder, ...(candidate.discFolder ? [candidate.discFolder] : []))
-    const targetPath = getUniquePath(join(targetDir, basename(candidate.filePath)))
+    const rawTargetPath = join(targetDir, basename(candidate.filePath))
 
-    if (!isInside(musicPath, targetPath)) continue
-    if (targetPath === candidate.filePath) continue
+    // Check against the raw (non-uniquified) path first — a file is always
+    // "in the way" of its own current location, so uniquifying before this
+    // check would spuriously rename an already-correctly-placed file (and
+    // compound further on every subsequent organize run).
+    if (rawTargetPath === candidate.filePath) continue
+    if (!isInside(musicPath, rawTargetPath)) continue
 
+    const targetPath = getUniquePath(rawTargetPath)
     moves.push({ from: candidate.filePath, to: targetPath })
   }
 
@@ -284,7 +310,19 @@ async function parseSongMetadata(filePath: string, artistId: string, albumId: st
     if (fmt.bitrate) bitrate = Math.round(fmt.bitrate / 1000)
     if (fmt.sampleRate) sampleRate = fmt.sampleRate
     if (fmt.numberOfChannels) channels = fmt.numberOfChannels
-    if (fmt.container) format = fmt.container.toLowerCase()
+    if (fmt.container) {
+      // music-metadata reports raw container/codec names that don't always
+      // match the friendly labels the UI expects — e.g. every MP3 comes back
+      // as container "MPEG" (not "mp3"), WAV as "WAVE" (not "wav"), and ALAC
+      // is only distinguishable from plain AAC by codec, not container.
+      const container = fmt.container.toLowerCase()
+      const codec = (fmt.codec || '').toLowerCase()
+      if (codec === 'alac') format = 'alac'
+      else if (container.includes('mpeg')) format = 'mp3'
+      else if (container.startsWith('m4a')) format = 'm4a'
+      else if (container === 'wave') format = 'wav'
+      else format = container
+    }
   } catch { /* use filename-derived values */ }
 
   if (discNumber == null) {
@@ -384,7 +422,13 @@ export async function scanLibrary(musicPath: string, moveLogPath?: string, organ
     for (const albumFolder of albumFolders.sort()) {
       const album = await scanAlbum(join(artistPath, albumFolder), artistId, artistName)
       if (!album) continue
-      if (album.songs.length < MIN_ALBUM_TRACKS) {
+      // "Unknown Album" is never a real album name — a folder by that name
+      // only exists because organizeLooseTracks() once had no genuine album
+      // signal for tracks placed there (see the fix above). Demoting it to
+      // loose songs here means an already-corrupted folder from before that
+      // fix self-heals on the very next scan, without moving any files.
+      const isGenuineAlbum = album.songs.length >= MIN_ALBUM_TRACKS && album.name !== UNKNOWN_ALBUM
+      if (!isGenuineAlbum) {
         looseSongs.push(...album.songs.map(song => ({ ...song, albumId: singlesId })))
       } else {
         albums.push(album)
